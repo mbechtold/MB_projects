@@ -15,6 +15,7 @@ from pyldas.interface import LDAS_io
 
 from myprojects.timeseries import calc_anomaly
 
+from scipy.stats import zscore
 
 def plot_increments():
 
@@ -425,11 +426,12 @@ def plot_timeseries_cci():
     # lon = -108.528442383
 
     # Western Siberia
-    lat = 60.77
-    lon = 68.68
+    lats = np.arange(60,61,0.1)
+    lons = np.arange(67,69,0.1)
 
     exp = 'SMAP_EASEv2_M36_NORTH_DET2'
     domain='SMAP_EASEv2_M36_NORTH'
+    outpath = '/data/leuven/317/vsc31786/FIG_tmp'
     PEATCLSM = LDAS_io('xhourly', exp=exp, domain=domain)
     exp = 'SMAP_EASEv2_M36_NORTH_DET2_CLSM'
     domain='SMAP_EASEv2_M36_NORTH'
@@ -442,38 +444,107 @@ def plot_timeseries_cci():
     CCI_ACTIVE = xr.open_dataset(fname)
     fname = '/scratch/leuven/317/vsc31786/CCI/COMBINED_v04.4_timeseries.nc'
     CCI_COMBINED = xr.open_dataset(fname)
-        
-    col, row = LDAS_io().grid.lonlat2colrow(lon, lat, domain=True)
-
-    #title = 'increment variance (PEATCLSMibrated): %.2f        increment variance (CLSMibrated): %.2f' % (incr_var_PEATCLSM[row,col], incr_var_CLSM[row,col])
-    title = ''
-
-    fontsize = 12
 
 
-    PEATCLSM = LDAS_io('ObsFcstAna', 'US_M36_SMOS_DA_PEATCLSMibrated_sPEATCLSMed')
-    CLSM = LDAS_io('ObsFcstAna', 'US_M36_SMOS_DA_noPEATCLSM_sPEATCLSMed_pentadal')
-    orig = LDAS_io('ObsFcstAna', 'US_M36_SMOS_noDA_unsPEATCLSMed')
+    for lat in lats:
+        for lon in lons:
+            col, row = LDAS_io().grid.lonlat2colrow(lon, lat, domain=True)
+            title = ''
 
-    #PEATCLSM.timeseries['sfmc']
+            fontsize = 12
 
-    ts_obs_PEATCLSM = PEATCLSM.read_ts('sfmc', lon, lat, lonlat=True)
-    ts_obs_PEATCLSM.name = 'sfmc PEATCLSM'
-    ts_obs_CLSM = CLSM.read_ts('sfmc', lon, lat, lonlat=True)
-    ts_obs_CLSM.name = 'sfmc CLSM'
-    ts_obs_CCI_PASSIVE = CCI_PASSIVE.read_ts('sm', lon, lat, lonlat=True)
-    ts_obs_CCI_PASSIVE.name = 'sm PASSIVE'
-    ts_obs_CCI_ACTIVE = CCI_ACTIVE.read_ts('sm', lon, lat, lonlat=True)
-    ts_obs_CCI_ACTIVE.name = 'sm ACTIVE'
-    ts_obs_CCI_COMBINED = CCI_COMBINED.read_ts('sm', lon, lat, lonlat=True)
-    ts_obs_CCI_COMBINED.name = 'sm COMBINED'
+            #PEATCLSM.timeseries['sfmc']
 
-    df = pd.concat((ts_obs_PEATCLSM, ts_obs_CLSM, ts_obs_CCI_PASSIVE, ts_obs_CCI_ACTIVE, ts_obs_CCI_COMBINED),axis=1).dropna()
+            ts_obs_PEATCLSM = PEATCLSM.read_ts('sfmc', lon, lat, lonlat=True)
+            ts_obs_PEATCLSM.name = 'sfmc PEATCLSM'
+            ts_obs_CLSM = CLSM.read_ts('sfmc', lon, lat, lonlat=True)
+            ts_obs_CLSM.name = 'sfmc CLSM'
+            #ts_obs_CCI_PASSIVE = CCI_PASSIVE.read_ts('sm', lon, lat, lonlat=True)
+            ts_obs_CCI_PASSIVE = CCI_PASSIVE.sel(lat=lat,lon=lon,method='nearest').sm.to_series()
+            ts_obs_CCI_PASSIVE.name = 'sm PASSIVE'
+            #ts_obs_CCI_ACTIVE = CCI_ACTIVE.read_ts('sm', lon, lat, lonlat=True)
+            ts_obs_CCI_ACTIVE = CCI_ACTIVE.sel(lat=lat,lon=lon,method='nearest').sm.to_series()
+            ts_obs_CCI_ACTIVE.name = 'sm ACTIVE'
+            #ts_obs_CCI_COMBINED = CCI_COMBINED.read_ts('sm', lon, lat, lonlat=True)
+            ts_obs_CCI_COMBINED = CCI_COMBINED.sel(lat=lat,lon=lon,method='nearest').sm.to_series()
+            ts_obs_CCI_COMBINED.name = 'sm COMBINED'
 
+            ts_obs_PEATCLSM_daily = ts_obs_PEATCLSM.groupby(ts_obs_PEATCLSM.index.date).mean()
+            ts_obs_CLSM_daily = ts_obs_CLSM.groupby(ts_obs_CLSM.index.date).mean()
+            df = pd.concat((ts_obs_PEATCLSM_daily, ts_obs_CLSM_daily, ts_obs_CCI_PASSIVE, ts_obs_CCI_ACTIVE, ts_obs_CCI_COMBINED),axis=1).dropna()
+            df_zscore = df.apply(zscore)
+
+            # Fig 1
+            fname = os.path.join(outpath, 'PEATCLSM_CCI_' + '%0.2f' % lat + '_' + '%0.2f' % lon + '.png')
+
+            f = plt.figure(figsize=(19, 14), dpi=90, facecolor='w', edgecolor='k')
+            ax1 = plt.subplot2grid((5, 5), (0, 0), colspan=4)
+            csel = ts_obs_CLSM.name
+            ax1.set_title(csel)
+            df_zscore[csel].plot(ax=ax1, ylim=[-3, 3], xlim=['2010-01-01', '2015-01-01'], fontsize=fontsize, style=['.'])
+            plt.xlabel('')
+            plt.ylabel('zscore(sm)')
+
+            ax2 = ax1 = plt.subplot2grid((5, 5), (1, 0), colspan=4, sharex=ax1)
+            csel = ts_obs_PEATCLSM.name
+            ax2.set_title(csel)
+            df_zscore[csel].plot(ax=ax2, ylim=[-3, 3], xlim=['2010-01-01', '2015-01-01'], fontsize=fontsize, style=['.'])
+            plt.xlabel('')
+            plt.ylabel('zscore(sm)')
+
+            ax2 = ax1 = plt.subplot2grid((5, 5), (2, 0), colspan=4, sharex=ax1)
+            csel = ts_obs_CCI_PASSIVE.name
+            ax2.set_title(csel)
+            df_zscore[csel].plot(ax=ax2, ylim=[-3, 3], xlim=['2010-01-01', '2015-01-01'], fontsize=fontsize, style=['.'])
+            plt.xlabel('')
+            plt.ylabel('zscore(sm)')
+
+            ax2 = ax1 = plt.subplot2grid((5, 5), (3, 0), colspan=4, sharex=ax1)
+            csel = ts_obs_CCI_ACTIVE.name
+            ax2.set_title(csel)
+            df_zscore[csel].plot(ax=ax2, ylim=[-3, 3], xlim=['2010-01-01', '2015-01-01'], fontsize=fontsize, style=['.'])
+            plt.xlabel('')
+            plt.ylabel('zscore(sm)')
+
+            ax2 = ax1 = plt.subplot2grid((5, 5), (4, 0), colspan=4, sharex=ax1)
+            csel = ts_obs_CCI_COMBINED.name
+            ax2.set_title(csel)
+            df_zscore[csel].plot(ax=ax2, ylim=[-3, 3], xlim=['2010-01-01', '2015-01-01'], fontsize=fontsize, style=['.'])
+            plt.xlabel('')
+            plt.ylabel('zscore(sm)')
+
+            ax2 = ax1 = plt.subplot2grid((5, 5), (2, 4), colspan=1)
+            plt.plot(df_zscore[ts_obs_PEATCLSM.name],df_zscore[ts_obs_CCI_PASSIVE.name],'.')
+            plt.xlabel(ts_obs_PEATCLSM.name)
+            plt.ylabel(ts_obs_CCI_PASSIVE.name)
+            plt.xlim(-3, 3)
+            plt.ylim(-3, 3)
+
+            ax2 = ax1 = plt.subplot2grid((5, 5), (3, 4), colspan=1)
+            plt.plot(df_zscore[ts_obs_PEATCLSM.name],df_zscore[ts_obs_CCI_ACTIVE.name],'.')
+            plt.xlabel(ts_obs_PEATCLSM.name)
+            plt.ylabel(ts_obs_CCI_ACTIVE.name)
+            plt.xlim(-3, 3)
+            plt.ylim(-3, 3)
+
+            ax2 = ax1 = plt.subplot2grid((5, 5), (4, 4), colspan=1)
+            plt.plot(df_zscore[ts_obs_PEATCLSM.name],df_zscore[ts_obs_CCI_COMBINED.name],'.')
+            plt.xlabel(ts_obs_PEATCLSM.name)
+            plt.ylabel(ts_obs_CCI_COMBINED.name)
+            plt.xlim(-3, 3)
+            plt.ylim(-3, 3)
+
+            plt.tight_layout()
+
+            plt.savefig(fname, dpi=f.dpi)
+            plt.close()
+            #plt.show()
+
+
+    '''
     plt.figure(figsize=(19,8))
-
     ax1 = plt.subplot(111)
-    df.plot(ax=ax1, xlim=['2010-01-01','2015-01-01'], fontsize=fontsize, style=['-','--',':','-','--'], linewidth=2)
+    df_zscore.plot(ax=ax1, ylim=[-3,3], xlim=['2010-01-01','2015-01-01'], fontsize=fontsize, style=['.','.','.','.','.'])
     plt.xlabel('')
     plt.title(title, fontsize=fontsize+2)
 
@@ -486,16 +557,8 @@ def plot_timeseries_cci():
             cols[i] = col[0:7] + ' anomaly ' + col[7::]
     df.columns = cols
     df.dropna(inplace=True)
-
-    '''
-    ax2 = plt.subplot(212, sharex=ax1)
-    df.plot(ax=ax2, ylim=[-60,60], xlim=['2010-01-01','2017-01-01'], fontsize=fontsize, style=['-','--',':','-','--'], linewidth=2)
-    plt.xlabel('')
-    plt.tight_layout()
-    '''
-    
     plt.show()
-
+    '''
 
 def plot_ismn_locations():
 
