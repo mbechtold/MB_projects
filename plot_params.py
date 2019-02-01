@@ -437,6 +437,7 @@ def plot_timeseries_cci():
 
     # CCI
     fname = '/scratch/leuven/317/vsc31786/CCI/PASSIVE_v04.4_timeseries.nc'
+    # fname = '/mnt/vsc_scratch/CCI/PASSIVE_v04.4_timeseries.nc'
     CCI_PASSIVE = xr.open_dataset(fname)
     fname = '/scratch/leuven/317/vsc31786/CCI/ACTIVE_v04.4_timeseries.nc'
     CCI_ACTIVE = xr.open_dataset(fname)
