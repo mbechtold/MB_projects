@@ -351,6 +351,9 @@ def plot_timeseries():
     lat = 35.205233348
     lon = -97.910156250
 
+    exp = 'SMAP_EASEv2_M36_NORTH_SCA_SMOSrw_DA'
+    domain='SMAP_EASEv2_M36_NORTH'
+
     cal = LDAS_io('incr','US_M36_SMOS_DA_calibrated_scaled')
     uncal = LDAS_io('incr','US_M36_SMOS_DA_nocal_scaled_pentadal')
 
@@ -406,6 +409,93 @@ def plot_timeseries():
 
     plt.tight_layout()
     plt.show()
+
+def plot_timeseries_cci():
+
+    # Colorado
+    # lat = 39.095962936
+    # lon = -106.918945312
+
+    # Nebraska
+    # lat = 41.203456192
+    # lon = -102.249755859
+
+    # New Mexico
+    # lat = 31.522361470
+    # lon = -108.528442383
+
+    # Western Siberia
+    lat = 60.77
+    lon = 68.68
+
+    exp = 'SMAP_EASEv2_M36_NORTH_DET2'
+    domain='SMAP_EASEv2_M36_NORTH'
+    PEATCLSM = LDAS_io('xhourly', exp=exp, domain=domain)
+    exp = 'SMAP_EASEv2_M36_NORTH_DET2_CLSM'
+    domain='SMAP_EASEv2_M36_NORTH'
+    CLSM = LDAS_io('xhourly', exp=exp, domain=domain)
+
+    # CCI
+    fname = '/scratch/leuven/317/vsc31786/CCI/PASSIVE_v04.4_timeseries.nc'
+    CCI_PASSIVE = xr.open_dataset(fname)
+    fname = '/scratch/leuven/317/vsc31786/CCI/ACTIVE_v04.4_timeseries.nc'
+    CCI_ACTIVE = xr.open_dataset(fname)
+    fname = '/scratch/leuven/317/vsc31786/CCI/COMBINED_v04.4_timeseries.nc'
+    CCI_COMBINED = xr.open_dataset(fname)
+        
+    col, row = LDAS_io().grid.lonlat2colrow(lon, lat, domain=True)
+
+    #title = 'increment variance (PEATCLSMibrated): %.2f        increment variance (CLSMibrated): %.2f' % (incr_var_PEATCLSM[row,col], incr_var_CLSM[row,col])
+    title = ''
+
+    fontsize = 12
+
+
+    PEATCLSM = LDAS_io('ObsFcstAna', 'US_M36_SMOS_DA_PEATCLSMibrated_sPEATCLSMed')
+    CLSM = LDAS_io('ObsFcstAna', 'US_M36_SMOS_DA_noPEATCLSM_sPEATCLSMed_pentadal')
+    orig = LDAS_io('ObsFcstAna', 'US_M36_SMOS_noDA_unsPEATCLSMed')
+
+    #PEATCLSM.timeseries['sfmc']
+
+    ts_obs_PEATCLSM = PEATCLSM.read_ts('sfmc', lon, lat, lonlat=True)
+    ts_obs_PEATCLSM.name = 'sfmc PEATCLSM'
+    ts_obs_CLSM = CLSM.read_ts('sfmc', lon, lat, lonlat=True)
+    ts_obs_CLSM.name = 'sfmc CLSM'
+    ts_obs_CCI_PASSIVE = CCI_PASSIVE.read_ts('sm', lon, lat, lonlat=True)
+    ts_obs_CCI_PASSIVE.name = 'sm PASSIVE'
+    ts_obs_CCI_ACTIVE = CCI_ACTIVE.read_ts('sm', lon, lat, lonlat=True)
+    ts_obs_CCI_ACTIVE.name = 'sm ACTIVE'
+    ts_obs_CCI_COMBINED = CCI_COMBINED.read_ts('sm', lon, lat, lonlat=True)
+    ts_obs_CCI_COMBINED.name = 'sm COMBINED'
+
+    df = pd.concat((ts_obs_PEATCLSM, ts_obs_CLSM, ts_obs_CCI_PASSIVE, ts_obs_CCI_ACTIVE, ts_obs_CCI_COMBINED),axis=1).dropna()
+
+    plt.figure(figsize=(19,8))
+
+    ax1 = plt.subplot(111)
+    df.plot(ax=ax1, xlim=['2010-01-01','2015-01-01'], fontsize=fontsize, style=['-','--',':','-','--'], linewidth=2)
+    plt.xlabel('')
+    plt.title(title, fontsize=fontsize+2)
+
+    cols = df.columns.values
+    for i,col in enumerate(df):
+        df[col] = calc_anomaly(df[col], method='ma', longterm=True).values
+        if i < 3:
+            cols[i] = col[0:7] + ' anomaly ' + col[7::]
+        else:
+            cols[i] = col[0:7] + ' anomaly ' + col[7::]
+    df.columns = cols
+    df.dropna(inplace=True)
+
+    '''
+    ax2 = plt.subplot(212, sharex=ax1)
+    df.plot(ax=ax2, ylim=[-60,60], xlim=['2010-01-01','2017-01-01'], fontsize=fontsize, style=['-','--',':','-','--'], linewidth=2)
+    plt.xlabel('')
+    plt.tight_layout()
+    '''
+    
+    plt.show()
+
 
 def plot_ismn_locations():
 
