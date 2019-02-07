@@ -429,6 +429,23 @@ def plot_timeseries_cci():
     lats = np.arange(60,61,0.1)
     lons = np.arange(67,69,0.1)
 
+    #lats = [60.5]
+    #lons = [67.1]
+    #lats = [60.26, 59.45,  52.71]
+    #lons = [65.80, 42.00, -84.18]
+
+    ''' get nearest in situ site 
+    fname = '/staging/leuven/stg_00024/l_data/obs_insitu/peatland_data/WTD_peatlands_global_WGS84_DA.csv'
+    np.genfromtxt(fname, names=True, delimiter=',', dtype=None)
+    fname = '/staging/leuven/stg_00024/l_data/obs_insitu/peatland_data/000_all_wtd_GLOBAL/CO_Ek_avg.csv'
+    sitewtd_tmp = np.genfromtxt(fname, names=True, delimiter=',', dtype=None)
+    sitewtd = pd.DataFrame(sitewtd_tmp)
+    '''
+
+    # Congo
+    # lats = [1.0]
+    # lons = [17.5]
+
     exp = 'SMAP_EASEv2_M36_NORTH_DET2'
     domain='SMAP_EASEv2_M36_NORTH'
     outpath = '/data/leuven/317/vsc31786/FIG_tmp'
@@ -437,19 +454,22 @@ def plot_timeseries_cci():
     domain='SMAP_EASEv2_M36_NORTH'
     CLSM = LDAS_io('xhourly', exp=exp, domain=domain)
 
+
+    #cci_version = 'v03.3'
+    cci_version = 'v04.4'
     # CCI
-    fname = '/scratch/leuven/317/vsc31786/CCI/PASSIVE_v04.4_timeseries.nc'
+    fname = '/scratch/leuven/317/vsc31786/CCI/PASSIVE_'+cci_version+'_timeseries.nc'
     # fname = '/mnt/vsc_scratch/CCI/PASSIVE_v04.4_timeseries.nc'
     CCI_PASSIVE = xr.open_dataset(fname)
-    fname = '/scratch/leuven/317/vsc31786/CCI/ACTIVE_v04.4_timeseries.nc'
+    fname = '/scratch/leuven/317/vsc31786/CCI/ACTIVE_'+cci_version+'_timeseries.nc'
     CCI_ACTIVE = xr.open_dataset(fname)
-    fname = '/scratch/leuven/317/vsc31786/CCI/COMBINED_v04.4_timeseries.nc'
+    fname = '/scratch/leuven/317/vsc31786/CCI/COMBINED_'+cci_version+'_timeseries.nc'
     CCI_COMBINED = xr.open_dataset(fname)
 
 
     for lat in lats:
         for lon in lons:
-            col, row = LDAS_io().grid.lonlat2colrow(lon, lat, domain=True)
+            col, row = PEATCLSM.grid.lonlat2colrow(lon, lat, domain=True)
             title = ''
 
             fontsize = 12
@@ -475,60 +495,93 @@ def plot_timeseries_cci():
             df = pd.concat((ts_obs_PEATCLSM_daily, ts_obs_CLSM_daily, ts_obs_CCI_PASSIVE, ts_obs_CCI_ACTIVE, ts_obs_CCI_COMBINED),axis=1).dropna()
             df_zscore = df.apply(zscore)
 
-            # Fig 1
-            fname = os.path.join(outpath, 'PEATCLSM_CCI_' + '%0.2f' % lat + '_' + '%0.2f' % lon + '.png')
+            if df.empty:
+                continue
 
-            f = plt.figure(figsize=(19, 14), dpi=90, facecolor='w', edgecolor='k')
-            ax1 = plt.subplot2grid((5, 5), (0, 0), colspan=4)
+            # Fig 1
+            fname = os.path.join(outpath, 'PEATCLSM_CCI'+cci_version+'_' + '%0.2f' % lat + '_' + '%0.2f' % lon + '.png')
+            print fname
+
+            f = plt.figure(figsize=(19, 13), dpi=90, facecolor='w', edgecolor='k')
+            ax1 = plt.subplot2grid((5, 6), (0, 0), colspan=4)
             csel = ts_obs_CLSM.name
             ax1.set_title(csel)
             df_zscore[csel].plot(ax=ax1, ylim=[-3, 3], xlim=['2010-01-01', '2015-01-01'], fontsize=fontsize, style=['.'])
             plt.xlabel('')
             plt.ylabel('zscore(sm)')
 
-            ax2 = ax1 = plt.subplot2grid((5, 5), (1, 0), colspan=4, sharex=ax1)
+            ax2 = plt.subplot2grid((5, 6), (1, 0), colspan=4, sharex=ax1)
             csel = ts_obs_PEATCLSM.name
             ax2.set_title(csel)
             df_zscore[csel].plot(ax=ax2, ylim=[-3, 3], xlim=['2010-01-01', '2015-01-01'], fontsize=fontsize, style=['.'])
+            #sitewtd.apply(zscore)[wtd](ax=ax2, ylim=[-3, 3], xlim=['2010-01-01', '2015-01-01'], fontsize=fontsize, style=['.'])
             plt.xlabel('')
             plt.ylabel('zscore(sm)')
 
-            ax2 = ax1 = plt.subplot2grid((5, 5), (2, 0), colspan=4, sharex=ax1)
+            ax2 = plt.subplot2grid((5, 6), (2, 0), colspan=4, sharex=ax1)
             csel = ts_obs_CCI_PASSIVE.name
             ax2.set_title(csel)
             df_zscore[csel].plot(ax=ax2, ylim=[-3, 3], xlim=['2010-01-01', '2015-01-01'], fontsize=fontsize, style=['.'])
             plt.xlabel('')
             plt.ylabel('zscore(sm)')
 
-            ax2 = ax1 = plt.subplot2grid((5, 5), (3, 0), colspan=4, sharex=ax1)
+            ax2 = plt.subplot2grid((5, 6), (3, 0), colspan=4, sharex=ax1)
             csel = ts_obs_CCI_ACTIVE.name
             ax2.set_title(csel)
             df_zscore[csel].plot(ax=ax2, ylim=[-3, 3], xlim=['2010-01-01', '2015-01-01'], fontsize=fontsize, style=['.'])
             plt.xlabel('')
             plt.ylabel('zscore(sm)')
 
-            ax2 = ax1 = plt.subplot2grid((5, 5), (4, 0), colspan=4, sharex=ax1)
+            ax2 = plt.subplot2grid((5, 6), (4, 0), colspan=4, sharex=ax1)
             csel = ts_obs_CCI_COMBINED.name
             ax2.set_title(csel)
             df_zscore[csel].plot(ax=ax2, ylim=[-3, 3], xlim=['2010-01-01', '2015-01-01'], fontsize=fontsize, style=['.'])
             plt.xlabel('')
             plt.ylabel('zscore(sm)')
 
-            ax2 = ax1 = plt.subplot2grid((5, 5), (2, 4), colspan=1)
+            ax2 = plt.subplot2grid((5, 6), (0, 4), rowspan=2, colspan=2)
+            plt.plot(df[ts_obs_PEATCLSM.name],df[ts_obs_CLSM.name],'.')
+            plt.xlabel(ts_obs_PEATCLSM.name)
+            plt.ylabel(ts_obs_CLSM.name)
+            #plt.xlim(-3, 3)
+            #plt.ylim(-3, 3)
+
+            ax2 = plt.subplot2grid((5, 6), (2, 4), colspan=1)
+            plt.plot(df_zscore[ts_obs_CLSM.name],df_zscore[ts_obs_CCI_PASSIVE.name],'.')
+            plt.xlabel(ts_obs_CLSM.name)
+            plt.ylabel(ts_obs_CCI_PASSIVE.name)
+            plt.xlim(-3, 3)
+            plt.ylim(-3, 3)
+
+            ax2 = plt.subplot2grid((5, 6), (3, 4), colspan=1)
+            plt.plot(df_zscore[ts_obs_CLSM.name],df_zscore[ts_obs_CCI_ACTIVE.name],'.')
+            plt.xlabel(ts_obs_CLSM.name)
+            plt.ylabel(ts_obs_CCI_ACTIVE.name)
+            plt.xlim(-3, 3)
+            plt.ylim(-3, 3)
+
+            ax2 = plt.subplot2grid((5, 6), (4, 4), colspan=1)
+            plt.plot(df_zscore[ts_obs_CLSM.name],df_zscore[ts_obs_CCI_COMBINED.name],'.')
+            plt.xlabel(ts_obs_CLSM.name)
+            plt.ylabel(ts_obs_CCI_COMBINED.name)
+            plt.xlim(-3, 3)
+            plt.ylim(-3, 3)
+
+            ax2 = plt.subplot2grid((5, 6), (2, 5), colspan=1)
             plt.plot(df_zscore[ts_obs_PEATCLSM.name],df_zscore[ts_obs_CCI_PASSIVE.name],'.')
             plt.xlabel(ts_obs_PEATCLSM.name)
             plt.ylabel(ts_obs_CCI_PASSIVE.name)
             plt.xlim(-3, 3)
             plt.ylim(-3, 3)
 
-            ax2 = ax1 = plt.subplot2grid((5, 5), (3, 4), colspan=1)
+            ax2 = plt.subplot2grid((5, 6), (3, 5), colspan=1)
             plt.plot(df_zscore[ts_obs_PEATCLSM.name],df_zscore[ts_obs_CCI_ACTIVE.name],'.')
             plt.xlabel(ts_obs_PEATCLSM.name)
             plt.ylabel(ts_obs_CCI_ACTIVE.name)
             plt.xlim(-3, 3)
             plt.ylim(-3, 3)
 
-            ax2 = ax1 = plt.subplot2grid((5, 5), (4, 4), colspan=1)
+            ax2 = plt.subplot2grid((5, 6), (4, 5), colspan=1)
             plt.plot(df_zscore[ts_obs_PEATCLSM.name],df_zscore[ts_obs_CCI_COMBINED.name],'.')
             plt.xlabel(ts_obs_PEATCLSM.name)
             plt.ylabel(ts_obs_CCI_COMBINED.name)
